@@ -1,0 +1,79 @@
+CC = emcc
+CXX = em++
+#CC = clang
+#CXX = clang++
+#CXX = clang++ -stdlib=libc++
+AR = emar
+
+ARCHOPTS = -m32 -march=core2 -mtune=native
+COPTS = -fno-strict-overflow -fno-math-errno -fno-trapping-math
+COPTS += -Wall -Wextra -Wshadow
+XLIBDIR = /usr/X11R6/lib
+GLDIS = /usr/include
+
+EMCCOPTS = --bind -O3 -s WASM=1 -s NO_EXIT_RUNTIME=1 -s "EXPORTED_RUNTIME_METHODS=['addOnPostRun','addFunction']"
+EMCCOPTS += -s ALLOW_MEMORY_GROWTH=1
+
+#Debug
+#EMCCOPTS = --bind -O1 -s NO_EXIT_RUNTIME=0 -s "EXPORTED_RUNTIME_METHODS=['addOnPostRun','addFunction']" 
+#EMCCOPTS += -s ALLOW_MEMORY_GROWTH=1 -gsource-map -s ALLOW_TABLE_GROWTH
+
+ifeq (,$(shell $(CXX) --version | grep clang))
+	# Real gcc, not clang
+	COPTS += -fno-delete-null-pointer-checks
+	OPENMPOPTS = -fopenmp
+endif
+
+CXXOPTS = $(COPTS)
+CFLAGS = $(ARCHOPTS) $(OPENMPOPTS) $(INCLUDES) $(COPTS)
+CXXFLAGS = $(ARCHOPTS) $(OPENMPOPTS) $(INCLUDES) $(CXXOPTS)
+
+LIBS = -lm
+GLLIBS = -L$(XLIBDIR) -L$(GLDIR) -lgluit -lGLU -lGL -lX11 
+
+
+$(OBJDIR)/%.o: %.c
+	@ echo "Compiling $<"
+	@ rm -f $@
+	@ $(CC) $(CFLAGS) -MMD -MP -c $< -o $@
+
+$(OBJDIR)/%.o: %.cc
+	@ echo "Compiling $<"
+	@ rm -f $@
+	@ $(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
+
+$(OBJDIR)/%.o: %.cpp
+	@ echo "Compiling $<"
+	@ rm -f $@
+	@ $(CXX) $(CXXFLAGS) -MMD -MP -c $< -o $@
+
+ifneq (,$(findstring -L,$(LIBDIR)))
+VPATH = $(subst -L,,$(LIBDIR))
+endif
+
+define LINK
+	@ echo "Linking $@"
+	@ rm -f $@
+	@ $(CXX) $(CXXFLAGS) $^ $(LDFLAGS) $(LIBS) $(LDFLAG) $@
+endef
+
+define STATICLIB
+	@ echo "Creating library $@"
+	@ rm -f $@
+	@ $(AR) -rcs $@ $^
+endef
+
+define COMBINE
+	@ echo "Combine $@"
+	@ rm -f $@
+	@ $(CXX) $^ -r -o $@
+endef
+
+define EMCC
+	@ echo "Combine $@"
+	@ rm -f $@
+	@ $(CXX) $(EMCCOPTS) $^ -o $@
+endef
+
+-include $(OBJDIR)/*.d
+

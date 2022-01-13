@@ -1,0 +1,69 @@
+#
+# Makerules
+#
+# Pays attention to the following variables:
+#  DEBUG = y      - debugging compiler flags
+#  UNAME = xxxxx  - cross-compile for the given platform
+#                   (In particular, you can say UNAME = Win32 if mingw
+#		     is installed to cross-compile for Windows, or
+#		     UNAME = Linux to get 32-bit binaries on Linux x64)
+#                   If UNAME undefined on input, gets defined here.
+#  DESTDIR = xxxx - Place to put output binaries.
+#  MAKERULESDIR   - Where to find Makerules and Makedefs
+#
+#
+# Defines the following variables:
+#  UNAME          - destination system type (if not set by user)
+#  OBJDIR         - directory for object files
+#  CC             - C compiler
+#  CXX            - C++ compiler
+#  CFLAGS         - C compiler flags
+#  CXXFLAGS       - C++ compiler flags
+#  LDFLAGS        - Linker flags
+#  LIBS           - Libraries
+#  GLLIBS         - OpenGL libraries
+#  EXE            - Extension of executables (.exe under Win32)
+#  LINK           - The entire linking process
+#  STATICLIB      - Create .a archive
+#  SHAREDLIB      - Create .so archive
+#
+#
+# Client Makefiles need to define a "default:" rule
+# - SMR
+#
+
+#
+# Define UNAME
+#
+
+UNAME := Emcc
+
+#
+# Other variable definitions
+#
+OBJDIR ?= OBJ.$(UNAME)
+DESTDIR ?= .
+ifndef MAKERULESDIR
+	MAKERULESDIR := $(subst /,,$(dir $(lastword $(MAKEFILE_LIST))))
+endif
+
+#
+# Rules
+#
+all: $(OBJDIR) $(DESTDIR) default
+
+$(OBJDIR) $(DESTDIR):
+	-mkdir $@
+
+debug:
+	$(MAKE) DEBUG=y
+
+emcc:
+	$(MAKE) UNAME=Emcc
+
+.PHONY: all default clean debug emcc
+
+#
+# Makedefs
+#
+include $(MAKERULESDIR)/Makedefs.$(UNAME)

@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="https://unpkg.com/three@0.131.3/build/three.js"></script>
+    <!-- examples/js/loader -->
+    <script src="./js/GLTFLoader.js"></script>
+    <script src="./js/OBJLoader.js"></script>
+    <script src="./js/OrbitControls.js"></script>
+    <script src="./js/LineSegments2.js"></script>
+    <script src="./js/LineSegmentsGeometry.js"></script>
+    <script src="./js/LineMaterial.js"></script>
+    <!-- examples/js/shader -->
+    <script src="./js/CopyShader.js"></script>
+    <!-- examples/js/postprocessing -->
+    <script src="./js/EffectComposer.js"></script>
+    <script src="./js/RenderPass.js"></script>
+    <script src="./js/ShaderPass.js"></script>
+    <script src="./js/SSAARenderPass.js"></script>
+    <script src="./js/TAARenderPass.js"></script>
+    <script src="/libtrimesh.js"></script>
+    <style>
+      body {
+        margin: 0;
+      }
+      .bt {
+        display:inline-block;
+        padding: 0 5px;
+        border: 1px solid black;
+        width: 20px;
+        height:20px;
+      }
+    </style>
+  </head>
+  <body>
+    <input id="finput" type="file" /><div id="pin" class="bt">+</div>
+    <div id="canvas" style="position: absolute; width: 100%; height: 100%"></div>
+  </body>
+  <script>
+    function draw_lines(name, vector_points, color = 0x000000) {
+      const points = [];
+      for (var i = 0; i < vector_points.size(); i += 3) {
+        points.push(new THREE.Vector3(vector_points.get(i), vector_points.get(i + 1), vector_points.get(i + 2)));
+      }
+      // const material1 = new THREE.LineBasicMaterial({ color, linewidth: 1 });
+      const geometry1 = new THREE.BufferGeometry().setFromPoints(points);
+      // const line = new THREE.LineSegments(geometry1, material1);
+
+      // // console.log(geometry1);
+      const material = new THREE.LineMaterial({ color, linewidth: 0.003});
+      const geometry = new THREE.LineSegmentsGeometry().setPositions(geometry1.attributes.position.array);
+      const line = new THREE.LineSegments2(geometry, material);
+      // material.worldUnits = false;
+      line.name = name;
+      window.scene.add(line);
+    }
+
+    function update_lines(name, vector_points, color = 0x000000) {
+      const line = window.scene.getObjectByName(name);
+      window.scene.remove(line);
+      draw_lines(name, vector_points, color);
+    }
+
+    // function draw_lines_A(name, vector_points, color = 0x000000) {
+    //   const points = [];
+    //   for (let i = 0; i < vector_points.length; i += 3) {
+    //     points.push(new THREE.Vector3(vector_points[i], vector_points[i + 1], vector_points[i + 2]));
+    //   }
+    //   const material = new THREE.LineMaterial({ color });
+    //   const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    //   const line = new THREE.LineSegments(geometry, material);
+    //   line.name = name;
+    //   // line.scale.set(0.002, 0.002, 0.002);
+    //   // line.position.y = -1;
+    //   window.scene.add(line);
+    // }
+
+    // function update_lines_A(name, vector_points, color = 0x000000) {
+    //   const line = window.scene.getObjectByName(name);
+    //   // line.scale.set(0.002, 0.002, 0.002);
+    //   // line.position.y = -1;
+    //   window.scene.remove(line);
+    //   draw_lines_A(name, vector_points, color);
+    //   const points = [];
+    //   for (let i = 0; i < vector_points.length; i += 3) {
+    //     points.push(new THREE.Vector3(vector_points[i], vector_points[i + 1], vector_points[i + 2]));
+    //   }
+    //   const geometry = new THREE.BufferGeometry().setFromPoints(points);
+    //   line.geometry = geometry;
+    // }
+    function handleFile(e) {
+      const file = e.currentTarget.files[0];
+      const url = objectURL = URL.createObjectURL(file);
+      console.log(url);
+      const loader = new THREE.OBJLoader();
+      if (!(file instanceof Blob)) return;
+      const reader = new FileReader();
+
+      reader.onloadend = (evt) => {
+        const data = new Uint8Array(evt.target.result);
+        let filename = 'test.obj';
+        let stream = FS.open(filename, 'w+');
+        FS.write(stream, data, 0, data.length, 0);
+        FS.close(stream);
+
+        window.tri = Module.TriMesh.read(filename);
+        const tri = window.tri;
+
+        loader.load(
+        // resource URL
+        url,
+        // called when resource is loaded
+        function ( object ) {
+          console.log(object);
+          const mesh  = object.children[0];
+          const p = tri.get_scaleParam();
+          const scale = 1/p[3];
+          mesh.scale.x = scale;
+          mesh.scale.y = scale;
+          mesh.scale.z = scale;
+          mesh.position.x = -scale*p[0];
+          mesh.position.y = -scale*p[1];
+          mesh.position.z = -scale*p[2];
+          mesh.frustumCulled = false;
+          mesh.material = new THREE.MeshBasicMaterial();
+          // mesh.material.color = new THREE.Color(1,1,1);
+          window.scene.add( mesh );
+
+        },
+      );
+        const point = new THREE.Vector3();
+        window.camera.getWorldDirection(point);
+        console.log(point);
+        tri.setViewpos(point.x, point.y, point.z);
+        tri.init();
+        tri.compute_perview(false);
+        // const boundaries = tri.draw_boundaries(false);
+        // draw_lines('boundaries', boundaries);
+        // const ridges = tri.draw_mesh_ridges(true, false);
+        // draw_lines('ridges', ridges);
+        const suggestive = tri.draw_suggestive();
+        draw_lines('suggestive', suggestive, 0x01f1f0);
+        const contours = tri.draw_contours();
+        draw_lines('contours', contours , 0x01ff00);
+      };
+      reader.readAsArrayBuffer(file);
+    }
+    Module.addOnPostRun(() => {
+      finput.onchange = (e) => handleFile(e);
+      // pin.onwheel = function(e){
+      //   e.preventDefault();
+      //   console.log(e);
+      //   const yAxis = new THREE.Vector3();
+      //   yAxis.x = 0;
+      //   yAxis.y = 1;
+      //   yAxis.z = 0;
+      //   const angel = event.deltaY > 0 ? 0.08726 : -0.08726;
+      //   window.world_d.applyAxisAngle(yAxis, angel);
+      //   update_lines_A('view_pos', [world_d.x, world_d.y, world_d.z, 0, 0, 0], 0xff0000);
+      //   window.tri.setViewpos(world_d.x, world_d.y, world_d.z);
+      //   window.tri.compute_perview(false);
+
+      //   // const ridges = window.tri.draw_mesh_ridges(true, true);
+      //   // update_lines('ridges', ridges);
+      //   const suggestive = window.tri.draw_suggestive();
+      //   update_lines('suggestive', suggestive,0x01f1f0);
+      //   const contours = window.tri.draw_contours();
+      //   update_lines('contours', contours,0x01ff00);
+      // };
+    });
+    /* global THREE */
+    (function () {
+      'use strict';
+
+      //初始化场景
+      window.scene = new THREE.Scene();
+      window.scene.background = new THREE.Color(0.9, 0.9, 0.9);
+      //初始化相机
+      const camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 0.1, 100);
+      window.camera = camera;
+      camera.position.z = 3;
+      // // 测试用视图方向
+      // window.world_d = new THREE.Vector3();
+      // window.camera.getWorldDirection(window.world_d);
+      // window.world_d.x = -window.world_d.x;
+      // window.world_d.y = -window.world_d.y;
+      // window.world_d.z = -window.world_d.z;
+      // draw_lines_A('view_pos', [window.world_d.x, window.world_d.y, window.world_d.z, 0, 0, 0], 0xff0000);
+      // camera.focalLength = 100;
+
+      // 初始化渲染器
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      // renderer.shadowMap.enabled = true;
+      // renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      const dom = document.getElementById('canvas');
+      const rect = dom.getBoundingClientRect();
+      renderer.setSize(rect.width, rect.height);
+      dom.appendChild(renderer.domElement);
+
+      // 加载模型和贴图用的loader
+      // const loader = new THREE.GLTFLoader();
+      // const loader = new THREE.OBJLoader();
+      // const textureLoader = new THREE.TextureLoader();
+      // const textureCube = new THREE.CubeTextureLoader();
+
+      // 轨道控制器
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.addEventListener('change', () => {
+        const point = new THREE.Vector3();
+        camera.getWorldDirection(point);
+        window.tri.setViewpos(-point.x, -point.y, -point.z);
+        window.tri.compute_perview(false);
+        const suggestive = window.tri.draw_suggestive();
+        update_lines('suggestive', suggestive,0x01f1f0);
+        const contours = window.tri.draw_contours();
+        update_lines('contours', contours,0x01ff00);
+      });
+      controls.screenSpacePanning = false;
+
+      controls.minDistance = 2;
+      controls.maxDistance = 4.5;
+
+      controls.maxPolarAngle = Math.PI / 2;
+      controls.autoRotate = false;
+
+      // 监听Resize事件。
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        composer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      // 后期 抗锯齿
+      const composer = new THREE.EffectComposer(renderer);
+
+      const renderPass = new THREE.RenderPass(scene, camera);
+      renderPass.enabled = true;
+      composer.addPass(renderPass);
+
+      const copyPass = new THREE.ShaderPass(THREE.CopyShader);
+      composer.addPass(copyPass);
+
+      const taaRenderPass = new THREE.TAARenderPass(scene, camera);
+      taaRenderPass.enabled = true;
+      taaRenderPass.unbiased = false;
+      taaRenderPass.sampleLevel = 2;
+      taaRenderPass.accumulate = false;
+      composer.addPass(taaRenderPass);
+      // start
+      const render = function () {
+        window.requestAnimationFrame(render);
+        composer.render();
+      };
+
+      render();
+    })();
+  </script>
+</html>

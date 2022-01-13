@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+    <title>C++ WASM Demo</title>
+  </head>
+  <body>
+    <span style="font-size: 50px">🐶</span>
+    <button id="hi">Say hi</button>
+    <button id="bark">Bark (console)</button>
+    <input id = "finput" type="file"/>
+    <script src="/libtrimesh.js"></script>
+    <script>
+      function handleFile(e) {
+        const file = e.currentTarget.files[0];
+        console.log(file);
+        if (!(file instanceof Blob)) return;
+        const reader = new FileReader();
+        reader.onloadend = (evt) => {
+          const data = new Uint8Array(evt.target.result);
+          let filename = 'test.obj';
+          let stream = FS.open(filename, 'w+');
+          FS.write(stream, data, 0, data.length, 0);
+          FS.close(stream);
+
+          const tri = Module.TriMesh.read(filename);
+          tri.need_faces();
+          tri.need_curvatures();
+          const curv = tri.get_curv1();
+          const curvA = []
+          console.log(curv.size())
+          for (var i = 0; i < curv.size(); i++) {
+            curvA.push(curv.get(i))
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      }
+      Module.addOnPostRun(() => {
+        // const t = new Module.TriMesh();
+        // bark.onclick = () => t.need_faces();
+        finput.onchange = (e)=>handleFile(e);
+      });
+      
+    </script>
+  </body>
+</html>
